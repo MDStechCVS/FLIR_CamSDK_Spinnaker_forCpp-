@@ -22,7 +22,7 @@ Win SDK 10.0.2<br>
 
 ### [Spinnaker SDK 3.2.0.57 Download site (FLIR Site (Login Only))](https://flir.custhelp.com/app/account/fl_download_software)
 Spinnaker SDK 3.2.0.57 (https://www.flir.com/support-center/iis/machine-vision/downloads/spinnaker-sdk-download/spinnaker-sdk--download-files)<br> 
-<img width="581" alt="Spinnaker SDK Download" src="![image](https://github.com/user-attachments/assets/b7893987-ba07-4613-80d1-4db0d1f44496)">
+[Download](https://github.com/user-attachments/assets/b7893987-ba07-4613-80d1-4db0d1f44496)
 
 ## <div align="left">Contact</div>
 For bugs and inquiries, please contact us through GitHub Issues or team email.<br>
