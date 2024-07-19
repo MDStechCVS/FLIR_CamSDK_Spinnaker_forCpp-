@@ -15,18 +15,13 @@ https://blog.naver.com/mdstec_flir
 This program can run on Windows 10 or 11.<br>
 SDK :Spinnaker_sdk_64-bit.3.2.0.57
 
-## <div align="left">Manual</div>
-reference : [MDS Vision Framework Manual v0.1.pdf](https://github.com/MDStechCVS/FLIR_CamSDKforCpp/files/14188161/MDS.Vision.Framework.Manual.v0.1.pdf)
-
 ## Development environment:</div>
-
 Visual Studio 2019<br> 
 Win SDK 10.0.2<br> 
-[Microsoft Visual C++ 2010 x64 Redistributable](https://github.com/MDStechCVS/FLIR_CamSDKforCpp/blob/main/install/vcredist_x64_2010.exe)<br> 
-[Microsoft Visual C++ 2012 x64 Redistributable](https://github.com/MDStechCVS/FLIR_CamSDKforCpp/blob/main/install/vcredist_x64_2012.exe)<br>
+[Microsoft Visual C++ 2015~2022 x64 Redistributable](https://github.com/MDStechCVS/FLIR_CamSDK_Spinnaker_forCpp-/blob/main/VC_redist.x64.exe)<br> 
 
-### [Pleora SDK 4.1.6 Download site (FLIR Site (Login Only))](https://flir.custhelp.com/app/account/fl_download_software)
-e-bus sdk 4.1.6.3809<br> 
+### [Spinnaker SDK 3.2.0.57 Download site (FLIR Site (Login Only))](https://flir.custhelp.com/app/account/fl_download_software)
+Spinnaker SDK 3.2.0.57<br> 
 <img width="581" alt="Pleora SDK 다운로드" src="https://github.com/MDStechCVS/FLIR_IR_SampleforCsharp2/assets/142575573/d008e8b1-df57-4d4f-a0e3-53fca10f3052">
 
 ## <div align="left">Contact</div>
