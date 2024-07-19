@@ -21,8 +21,8 @@ Win SDK 10.0.2<br>
 [Microsoft Visual C++ 2015~2022 x64 Redistributable](https://github.com/MDStechCVS/FLIR_CamSDK_Spinnaker_forCpp-/blob/main/VC_redist.x64.exe)<br> 
 
 ### [Spinnaker SDK 3.2.0.57 Download site (FLIR Site (Login Only))](https://flir.custhelp.com/app/account/fl_download_software)
-Spinnaker SDK 3.2.0.57<br> 
-<img width="581" alt="Pleora SDK 다운로드" src="https://github.com/MDStechCVS/FLIR_IR_SampleforCsharp2/assets/142575573/d008e8b1-df57-4d4f-a0e3-53fca10f3052">
+Spinnaker SDK 3.2.0.57 (https://www.flir.com/support-center/iis/machine-vision/downloads/spinnaker-sdk-download/spinnaker-sdk--download-files)<br> 
+<img width="581" alt="Spinnaker SDK Download" src="![image](https://github.com/user-attachments/assets/b7893987-ba07-4613-80d1-4db0d1f44496)">
 
 ## <div align="left">Contact</div>
 For bugs and inquiries, please contact us through GitHub Issues or team email.<br>
