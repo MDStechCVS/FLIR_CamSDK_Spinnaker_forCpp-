@@ -3,8 +3,8 @@
 //
 
 #pragma once
-
 #include "Radiometric_Utility.h"
+#include "CMMTiming.h"
 
 // CMDSSpinnakerSDKDlg 대화 상자
 class CMDSSpinnakerSDKDlg : public CDialogEx
@@ -39,15 +39,20 @@ public:
 	CComboBox m_cbIRFormat;
 	CComboBox m_cbTempRange;
 	CButton m_radio;
+	CButton m_SEQSave;
 
+	CBrush m_bRed;
+	CBrush m_bGreen;
+	COLORREF m_Color1, m_Color2;
 public:
 	int m_nSelCamIndex;
 	int m_nHeight;
 	int m_nWidth;
 	bool m_bMeasCapable;
 	CString m_strPixelFormat = _T("");
-	PaletteTypes m_colormapType; // 컬러맵 타입
-// 구현입니다.
+	PaletteTypes m_colormapType; 
+	CStatic m_lbLive;
+
 protected:
 	HICON m_hIcon;
 
@@ -61,10 +66,14 @@ protected:
 private:
 	std::queue<ImagePtr> imageQueue;
 	std::mutex queueMutex;
+	std::mutex bufferMutex;  // 버퍼에 대한 접근을 동기화하기 위한 뮤텍스
 	std::condition_variable queueCond;
 	std::atomic<bool> m_PauseStreaming;  // 스트리밍 일시 정지 상태
 	HBRUSH m_hbrBackground;
 	Radiometric_Utility* m_RadUtill;
+	CMMTiming mm_timer;     // MM 타이머 객체
+	std::queue<ImagePtr> bufferQueue; // 이미지 데이터 버퍼를 저장하는 큐
+	std::condition_variable bufferNotEmpty; // 버퍼 대기
 
 	CWinThread* pThread;
 	CWinThread* pThreadConsumer;
@@ -96,8 +105,29 @@ private:
 	MDSMeasureMaxSpotValue m_MaxSpot; // 최대 스팟 값
 	MDSMeasureMinSpotValue m_MinSpot; // 최소 스팟 값
 
-public:
+	//SEQ
+	bool m_isRecording; // 녹화 중 여부
+	bool m_bStartRecording; // 녹화 시작 여부
+	bool m_bSaveAsSEQ; // SEQ 파일 저장 여부
+	int m_iCurrentSEQImage;
+	CFile m_SEQFile;
+	DWORD m_TrigCount;
+	DWORD m_LineState1;
+	DWORD m_LineState2;
+	DWORD m_TrigCount1;
+	DWORD m_TrigCount2;
+	ULONG m_Level;
+	ULONG m_Span;
+	time_t m_ts;
+	int m_ms;
+	short m_tzBias;
+	std::string m_SEQfilePath; // SEQ 파일 경로
+	//
+	CString SetFolderPath(CString _str);
+	bool m_blink;
+	bool m_bMouseImageSave;
 
+public:
 
 	void StartThreadProc();
 	static UINT AFX_CDECL ThreadCam(LPVOID _mothod); // 카메라 스레드
@@ -144,10 +174,21 @@ public:
 	void DrawRoiRectangle(cv::Mat& image);
 	void SetPauseStreaming(bool pause);
 	bool GetPauseStreaming() const;
+	CString GetLocalIPAddress();
+	unsigned long ConvertIPStringToNum(const CString& ipStr);
+	std::vector<CString> SplitIP(const CString& ip);
+	bool IsThirdOctetDifferent(const CString& ip1, const CString& ip2);
+	bool SetCameraIP(CameraPtr pCam, const CString& newIP);
+	void AdjustCameraIPToMatchLocalNetwork(CameraPtr pCam, const CString& localIP);
+	void FindCamera();
+	void StartProc();
+	bool IsSameNetwork(const CString& ip1, const CString& ip2);
+	CString GetLocalNetworkBaseAddress(const CString& cameraIP);
+	CString str2CString(const char* _str);
+	std::string CString2str(CString _str);
 
 	template <typename T>
 	cv::Mat NormalizeAndProcessImage(const T* data, int height, int width, int cvType);
-
 	cv::Mat DisplayLiveImage(cv::Mat& processedImageMat, bool bGrayType);
 	void CleanupAfterProcessing();
 	BITMAPINFO* CreateBitmapInfo(const cv::Mat& imageMat);
@@ -169,15 +210,41 @@ public:
 	int GetRoiValue(int controlId);
 	int GetSelectedComboBoxNumber(int controlId);
 	void deleteVariables();
+	void ClearQueue();
+	void AddBufferToQueue(ImagePtr buffer);
+	ImagePtr GetBufferFromQueue();
+	int GetQueueBufferCount();
+	ImagePtr CopyBuffer(ImagePtr originalBuffer);
+	int UpdateHeightForCamera(int nHeight, int nWidth);
+	bool FFF_HeightSummary(CameraPtr pCam);
+	void UpdateTriggerCountsAndLineStates(std::unique_ptr<uint16_t[]>&& data, int nWidth, int nHeight);
+
+	// SEQ 녹화 메서드
+	bool StartSEQRecording(CString strfilePath); // SEQ 녹화 시작
+	void SaveSEQ(int nWidth, int nHeight); // SEQ 저장
+	void SetStartRecordingFlag(bool bFlag); // 녹화 시작 플래그 설정
+	bool GetStartRecordingFlag(); // 녹화 시작 플래그 반환
+	void StopRecording(); // 녹화 중지
+	bool StartRecording(int frameWidth, int frameHeight, double frameRate); // 녹화 시작
+	void RecordThreadFunction(double frameRate); // 녹화 쓰레드 함수
+	//
+	void SetMouseImageSaveFlag(bool bFlag);
+	bool GetMouseImageSaveFlag();
+	bool IsMouseEventCheck(UINT message);
+	virtual BOOL PreTranslateMessage(MSG* pMsg);
+	void ShowPopupMenu(CPoint point);
+	void OnPopupMenuSave();
+	bool SaveImage(const cv::Mat& image);
+	std::string GenerateFileNameWithTimestamp(const std::string& basePath, const std::string& prefix, const std::string& extension);
 
 public:
 	afx_msg HBRUSH OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor);
 	afx_msg LRESULT OnAddLog(WPARAM wParam, LPARAM lParam);
-	afx_msg void OnBnClickedBtnConnect();
+	afx_msg void OnBnClickedBtnStart();
 	afx_msg void OnBnClickedBtnDisconnect();
 	afx_msg void OnLbnSelchangeCamList();
 	afx_msg void OnClose();
-	afx_msg void OnBnClickedBtnStart();
+	afx_msg void OnBnClickedBtnSeq();
 	afx_msg void OnCbnSelchangeCbColormap();
 	afx_msg void OnCbnSelchangeCbFps();
 	afx_msg void OnCbnSelchangeCbTempRange();
@@ -188,4 +255,5 @@ public:
 	afx_msg void OnBnClickedBtnRoiSet();
 	afx_msg void OnBnClickedBtnNuc();
 	afx_msg void RadioCtrl(UINT radio_Index);
+	afx_msg void OnBnClickedBtnChangeip();
 };

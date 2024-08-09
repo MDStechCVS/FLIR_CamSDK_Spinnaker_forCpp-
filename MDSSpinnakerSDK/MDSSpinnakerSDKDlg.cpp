@@ -52,6 +52,8 @@ void CMDSSpinnakerSDKDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_CB_TEMP_RANGE, m_cbTempRange);
 	DDX_Control(pDX, IDC_CB_FPS, m_cbFPS);
 	DDX_Control(pDX, IDC_CB_IR_FORMAT, m_cbIRFormat);
+	DDX_Control(pDX, IDC_BTN_SEQ, m_SEQSave);
+	DDX_Control(pDX, IDC_LIVE, m_lbLive);
 }
 
 BEGIN_MESSAGE_MAP(CMDSSpinnakerSDKDlg, CDialogEx)
@@ -59,14 +61,14 @@ BEGIN_MESSAGE_MAP(CMDSSpinnakerSDKDlg, CDialogEx)
 	ON_WM_QUERYDRAGICON()
 	ON_WM_TIMER()
 	ON_WM_CTLCOLOR()
-	ON_BN_CLICKED(IDC_BTN_CONNECT, &CMDSSpinnakerSDKDlg::OnBnClickedBtnConnect)
+	ON_BN_CLICKED(IDC_BTN_START, &CMDSSpinnakerSDKDlg::OnBnClickedBtnStart)
 	ON_BN_CLICKED(IDC_BTN_DISCONNECT, &CMDSSpinnakerSDKDlg::OnBnClickedBtnDisconnect)
 	ON_LBN_SELCHANGE(IDC_CAM_LIST, &CMDSSpinnakerSDKDlg::OnLbnSelchangeCamList)
 	ON_MESSAGE(WM_ADDLOG, &CMDSSpinnakerSDKDlg::OnAddLog)
 	ON_MESSAGE(WM_UPDATE_IMAGE, &CMDSSpinnakerSDKDlg::OnUpdateImage)
 	ON_MESSAGE(WM_DISPLAY_IMAGE, &CMDSSpinnakerSDKDlg::OnDisplayImage)
 	ON_WM_CLOSE()
-	ON_BN_CLICKED(IDC_BTN_START, &CMDSSpinnakerSDKDlg::OnBnClickedBtnStart)
+	ON_BN_CLICKED(IDC_BTN_SEQ, &CMDSSpinnakerSDKDlg::OnBnClickedBtnSeq)
 	ON_CBN_SELCHANGE(IDC_CB_COLORMAP, &CMDSSpinnakerSDKDlg::OnCbnSelchangeCbColormap)
 	ON_CBN_SELCHANGE(IDC_CB_FPS, &CMDSSpinnakerSDKDlg::OnCbnSelchangeCbFps)
 	ON_CBN_SELCHANGE(IDC_CB_TEMP_RANGE, &CMDSSpinnakerSDKDlg::OnCbnSelchangeCbTempRange)
@@ -76,6 +78,8 @@ BEGIN_MESSAGE_MAP(CMDSSpinnakerSDKDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BTN_ROI_SET, &CMDSSpinnakerSDKDlg::OnBnClickedBtnRoiSet)
 	ON_BN_CLICKED(IDC_BTN_NUC, &CMDSSpinnakerSDKDlg::OnBnClickedBtnNuc)
 	ON_CONTROL_RANGE(BN_CLICKED, IDC_FOCUS_COARSE, IDC_FOCUS_FINE, &CMDSSpinnakerSDKDlg::RadioCtrl)
+	ON_BN_CLICKED(IDC_BTN_CHANGEIP, &CMDSSpinnakerSDKDlg::OnBnClickedBtnChangeip)
+	ON_COMMAND(ID_POPUP_MENUITEM1, &CMDSSpinnakerSDKDlg::OnPopupMenuSave)
 END_MESSAGE_MAP()
 
 // =============================================================================
@@ -92,11 +96,16 @@ BOOL CMDSSpinnakerSDKDlg::OnInitDialog()
 	// TODO: 여기에 추가 초기화 작업을 추가합니다.
 
 	m_hbrBackground = ::CreateSolidBrush(RGB(255, 255, 255));
+	m_Color1 = RGB_RED;
+	m_Color2 = RGB_GREEN;
+	m_bRed.CreateSolidBrush(m_Color1);
+	m_bGreen.CreateSolidBrush(m_Color2);
 
 	RadioCtrl(IDC_FOCUS_COARSE);
 	// Palette 생성
 	std::string baseDir = GetRootPathA() + "\\res\\palette";
 	paletteManager.init(baseDir);
+	AddLog(_T(" Palette Loading Complated"));
 
 	PopulateComboBoxes();
 	InitCamlist();
@@ -105,6 +114,67 @@ BOOL CMDSSpinnakerSDKDlg::OnInitDialog()
 	SetTimer(TIMER_ID_GUI_UPDATE, 1000, NULL);
 
 	return TRUE;  // 포커스를 컨트롤에 설정하지 않으면 TRUE를 반환합니다.
+}
+
+bool CMDSSpinnakerSDKDlg::IsMouseEventCheck(UINT message)
+{
+	return (message == WM_LBUTTONDOWN || message == WM_MOUSEMOVE || message == WM_LBUTTONUP || message == WM_LBUTTONDBLCLK);
+}
+
+BOOL CMDSSpinnakerSDKDlg::PreTranslateMessage(MSG* pMsg)
+{
+	CStatic* DisplayCam = (CStatic*)GetDlgItem(IDC_CAM);
+
+	if (pMsg->message == WM_RBUTTONDOWN)
+	{
+		if(m_TStatus == THREAD_STATUS::THREAD_RUNNING)
+		{
+			CPoint point(pMsg->pt);
+			ScreenToClient(&point);
+
+			CRect rect;
+			DisplayCam->GetWindowRect(&rect);
+			// rect를 클라이언트 좌표로 변환합니다.
+			ScreenToClient(&rect);
+
+			if (rect.PtInRect(point))
+			{
+				// 팝업 메뉴를 올바른 위치에 표시하기 위해 좌표를 다시 화면 좌표로 변환합니다.
+				CPoint screenPoint = point;
+				ClientToScreen(&screenPoint);
+
+				ShowPopupMenu(screenPoint);
+			}
+			return TRUE;
+		}
+	}
+
+	return CDialogEx::PreTranslateMessage(pMsg);
+}
+
+void CMDSSpinnakerSDKDlg::ShowPopupMenu(CPoint point)
+{
+	CMenu menu;
+	menu.CreatePopupMenu();
+	menu.AppendMenu(MF_STRING, ID_POPUP_MENUITEM1, _T("Overlay Image Save"));
+
+	// Menu event mapping
+	CWnd* pWnd = GetForegroundWindow();
+
+	if (pWnd != nullptr)
+	{
+		menu.TrackPopupMenu(TPM_LEFTALIGN | TPM_RIGHTBUTTON, point.x, point.y, pWnd);
+	}
+
+	menu.DestroyMenu();
+}
+
+// 핸들러 함수 정의
+void CMDSSpinnakerSDKDlg::OnPopupMenuSave()
+{
+	// 추가적인 처리 코드 작성
+	AddLog(_T("Save Overlay Image"));
+	SetMouseImageSaveFlag(true);
 }
 
 // =============================================================================
@@ -153,6 +223,16 @@ void CMDSSpinnakerSDKDlg::OnTimer(UINT_PTR nIDEvent)
 	{
 		UpdateCalcParams();
 		UpdateDeviceOP();
+		
+		if (GetStartRecordingFlag())
+		{
+			m_blink = !m_blink;
+			std::this_thread::sleep_for(std::chrono::milliseconds(0));
+
+
+			m_lbLive.Invalidate();
+			m_lbLive.UpdateWindow();
+		}
 	}
 }
 
@@ -194,20 +274,18 @@ void CMDSSpinnakerSDKDlg::InitVariables()
 	m_tauPlanckConstants = new TPConstants;
 	m_objectParams = new ObjParams;
 	m_spectralResponseParams = new stRParams;
-
 	m_strPixelFormat = "0x1100007"; // Mono 16
 	//m_strPixelFormat = "0x1080001"; // Mono 8
 
 	m_objectParams->AtmTemp = m_objectParams->ExtOptTemp = m_objectParams->AmbTemp = 293.15f;
 	m_objectParams->ExtOptTransm = 1.0f; // default
-
-	// For TAU cameras we need GUI code for editing these values
 	m_objectParams->ObjectDistance = 2.0; // Default
 	m_objectParams->RelHum = 0.5; // Default
 	m_objectParams->Emissivity = 1.0; // Default
 
 	m_tauPlanckConstants->J1 = 1;
 	m_tauPlanckConstants->J0 = 0;
+
 	// Initiate spectral response
 	m_spectralResponseParams->X = 1.9;
 	m_spectralResponseParams->alpha1 = 0.006569;
@@ -223,9 +301,14 @@ void CMDSSpinnakerSDKDlg::InitVariables()
 	//Defalut
 	m_roi_rect.x = 0;
 	m_roi_rect.y = 0;
-	m_roi_rect.width = 640;
-	m_roi_rect.height = 480;
 
+	m_TrigCount = 0;
+	m_TrigCount1 = 0;
+	m_TrigCount2 = 0;
+	m_LineState1 = 0;
+	m_LineState2 = 0;
+
+	m_bStartRecording = false;
 
 	CString strLog = _T("");
 	strLog.Format(_T("CameraParams Variable Initialize "));
@@ -254,16 +337,15 @@ void CMDSSpinnakerSDKDlg::Camera_destroy()
 	DisConnectToDevice();
 }
 
-// =============================================================================
-void CMDSSpinnakerSDKDlg::InitCamlist()
+void CMDSSpinnakerSDKDlg::FindCamera()
 {
-	InitVariables();
 	m_System = System::GetInstance();
 	m_CamList = m_System->GetCameras();
 	m_TStatus = ThreadStatus::THREAD_IDLE;
 
+	CString localIP = GetLocalIPAddress();
 	CameraPtr pCam = nullptr;
-	CString logMessage;
+	CString Message;
 	// 시스템에 있는 카메라 리스트들 가지고온다
 	for (unsigned int i = 0; i < m_CamList.GetSize(); i++)
 	{
@@ -271,7 +353,6 @@ void CMDSSpinnakerSDKDlg::InitCamlist()
 		INodeMap& nodeMap = pCam->GetTLDeviceNodeMap();
 		CIntegerPtr ptrIP = nodeMap.GetNode("GevDeviceIPAddress");
 		CStringPtr ptrModelName = nodeMap.GetNode("DeviceModelName");
-		
 
 		if (IsReadable(ptrIP) && IsReadable(ptrModelName))
 		{
@@ -280,12 +361,25 @@ void CMDSSpinnakerSDKDlg::InitCamlist()
 			CString modelName(CA2CT(ptrModelName->GetValue().c_str()));
 
 			// IP 주소와 디바이스 이름을 로그 메시지로 포맷
-			logMessage.Format(_T("Camera Index: [%d] Model Name: [%s], IP: [%s]"),i+1, modelName, ipStr);
+			Message.Format(_T("Camera Index: [%d] Model Name: [%s], IP: [%s]"), i + 1, modelName, ipStr);
 
-			// 리스트박스에 로그 메시지 추가
-			m_CamListBox.AddString(logMessage);
+
+			// 세 번째 옥텟이 다를 경우 메시지에 추가
+		/*	if (IsThirdOctetDifferent(ipStr, localIP))
+			{
+				Message.Append(_T(" - Different third octet"));
+			}*/
+
+			// 리스트박스에 메시지 추가
+			m_CamListBox.AddString(Message);
 		}
 	}
+}
+// =============================================================================
+void CMDSSpinnakerSDKDlg::InitCamlist()
+{
+	InitVariables();
+	FindCamera();
 }
 
 // =============================================================================
@@ -337,14 +431,15 @@ CameraPtr CMDSSpinnakerSDKDlg::ConnectToDevice(int nIndex)
 {
 	CString logMessage;
 	CameraPtr pCam = nullptr;
-
+	
 	try
 	{
 		// 카메라 선택하지 않았으면 리턴
-		if (m_nSelCamIndex == -1)
-			return nullptr;
 
-		pCam = m_CamList.GetByIndex(m_nSelCamIndex);
+		if (nIndex == -1)
+			return nullptr;
+		
+		pCam = m_CamList.GetByIndex(nIndex);
 		pCam->Init();
 		logMessage.Format(_T("Camera Init Success"));
 		AddLog(logMessage);
@@ -412,7 +507,6 @@ bool CMDSSpinnakerSDKDlg::SetStreamingCameraParameters(INodeMap* lDeviceParams)
 
 		logMessage.Format(strIRType + " Mode");
 		AddLog(logMessage);
-
 	}
 
 	if (nIRFormat == Camera_IRFormat::RADIOMETRIC)
@@ -495,7 +589,6 @@ bool CMDSSpinnakerSDKDlg::SetStreamingCameraParameters(INodeMap* lDeviceParams)
 CameraModelList CMDSSpinnakerSDKDlg::FindCameraModel(INodeMap* lDeviceParams)
 {
 	CString message;
-
 	try 
 	{
 		// 모델명 파라미터 접근
@@ -565,7 +658,6 @@ bool CMDSSpinnakerSDKDlg::CameraParamSetting(CameraPtr pCam)
 		DWORD pixeltypeValue = ConvertHexValue(m_strPixelFormat);
 		CEnumerationPtr ptrPixelFormat = lDeviceParams.GetNode("PixelFormat");
 		CString strPixelFormat = DeterminePixelFormat(m_strPixelFormat);
-
 		gcstring formatName(strPixelFormat.GetString());  // Convert CString to gcstring
 		CEnumEntryPtr pixelFormatValue = ptrPixelFormat->GetEntryByName(formatName);
 
@@ -588,6 +680,88 @@ bool CMDSSpinnakerSDKDlg::CameraParamSetting(CameraPtr pCam)
 }
 
 // =============================================================================
+int CMDSSpinnakerSDKDlg::UpdateHeightForCamera(int nHeight, int nWidth)
+{
+	if (nHeight <= 0 || nWidth <= 0)
+	{
+		return 0;
+	}
+
+	int heightAdjustment = 1392 / nWidth + (1392 % nWidth ? 1 : 0);
+
+	if (0 < heightAdjustment)
+	{
+		nHeight += heightAdjustment;
+	}
+
+	return heightAdjustment;
+}
+
+bool CMDSSpinnakerSDKDlg::FFF_HeightSummary(CameraPtr pCam)
+{
+	CString logMessage;
+
+	INodeMap& nodeMap = pCam->GetNodeMap();
+
+	CIntegerPtr lHeight = nodeMap.GetNode("Height");
+	CIntegerPtr lWidth = nodeMap.GetNode("Width");
+
+	int A400_Height = 240;
+	int A700_Height = 480;
+	int A70_Height = 480;
+	int A645_Height = 480;
+	int A50_Height = 348;
+	int Ax5_Height = 256;
+
+	int nFFF_HeaderValue = UpdateHeightForCamera(lHeight->GetValue(), lWidth->GetValue());
+	int nFinalHeight = 0;
+
+	switch (m_CamModelList)
+	{
+	case CAM_MODEL::A300:
+		lHeight->SetValue(246);
+		//m_bTLUTCapable = true;
+		break;
+
+	case CAM_MODEL::A50:
+		m_nHeight = A50_Height;
+		nFinalHeight = nFFF_HeaderValue + A50_Height;
+		lHeight->SetValue(nFinalHeight);
+		break;
+
+	case CAM_MODEL::A400:
+		m_nHeight = A400_Height;
+		nFinalHeight = nFFF_HeaderValue + A400_Height;
+		lHeight->SetValue(nFinalHeight);
+		break;
+
+	case CAM_MODEL::A70:
+	case CAM_MODEL::A615:
+	case CAM_MODEL::A700:
+	case CAM_MODEL::FT1000:
+		m_nHeight = A645_Height;
+		nFinalHeight = nFFF_HeaderValue + A645_Height;
+		lHeight->SetValue(nFinalHeight);
+		break;
+
+	default:
+		break;
+	}
+	m_nWidth = lWidth->GetValue();
+
+	m_roi_rect.width = m_nWidth;
+	m_roi_rect.height = m_nHeight;
+
+	logMessage.Format(_T("Set Data Height = [%d]"), nFinalHeight);
+	AddLog(logMessage);
+
+	logMessage.Format(_T("Display Height = [%d], Width = [%d]"), m_nHeight, m_nWidth);
+	AddLog(logMessage);
+
+	return true;
+}
+
+// =============================================================================
 bool CMDSSpinnakerSDKDlg::AcquireImages(CameraPtr pCam)
 {
 	if (pCam == nullptr)
@@ -602,56 +776,21 @@ bool CMDSSpinnakerSDKDlg::AcquireImages(CameraPtr pCam)
 	CString logMessage;
 	INodeMap& nodeMap = pCam->GetNodeMap();
 
-	std::string serialNumber = "";
-
 	CEnumerationPtr ptrAcquisitionMode = nodeMap.GetNode("AcquisitionMode");
 	CEnumEntryPtr ptrAcquisitionModeContinuous = ptrAcquisitionMode->GetEntryByName("Continuous");
 	int64_t acquisitionModeContinuous = ptrAcquisitionModeContinuous->GetValue();
 
-	INodeMap& nodeMapTLDevice = pCam->GetTLDeviceNodeMap();
-	// Retrieve device serial number
-	CStringPtr ptrStringSerial = nodeMapTLDevice.GetNode("DeviceSerialNumber");
-
-	CIntegerPtr Height = nodeMap.GetNode("Height");
-	CIntegerPtr Width = nodeMap.GetNode("Width");
 	pCam->AcquisitionStop();
 
-	int nHeight = 0;
-	if (IsReadable(Height))
-	{
-		nHeight = Height->GetValue();
-		if (nHeight == 483)
-			m_nHeight = 480;
-		else
-			m_nHeight = nHeight;
-		//if (nHeight == 480)
-		//	nHeight += 3;
-		
-		Height->SetValue(nHeight);
-	}
+	FFF_HeightSummary(pCam);
 
-	if (IsReadable(Width))
-	{
-		int nWidth = Width->GetValue();
-		m_nWidth = nWidth;
-	}
 
-	logMessage.Format(_T("Data Height = [%d]"), nHeight);
-	AddLog(logMessage);
-
-	logMessage.Format(_T("Display Height = [%d], Width = [%d]"), m_nHeight, m_nWidth);
-	AddLog(logMessage);
-
-	//if (IsReadable(ptrStringSerial))
-	//{
-	//	serialNumber = ptrStringSerial->GetValue();
-	//}
-	//logMessage.Format(_T("[%d]SerialNumber %s"), serialNumber.c_str());
-	//AddLog(logMessage);
 
 	ptrAcquisitionMode->SetIntValue(acquisitionModeContinuous);
 
 	bFlagCheck = CameraParamSetting(pCam);
+
+	FFF_HeightSummary(pCam);
 
 	if (bFlagCheck)
 	{
@@ -674,7 +813,7 @@ bool CMDSSpinnakerSDKDlg::AcquireImages(CameraPtr pCam)
 }
 
 // =============================================================================
-void CMDSSpinnakerSDKDlg::OnBnClickedBtnConnect()
+void CMDSSpinnakerSDKDlg::OnBnClickedBtnStart()
 {
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
 
@@ -683,12 +822,14 @@ void CMDSSpinnakerSDKDlg::OnBnClickedBtnConnect()
 		AddLog(_T("------------------------------------"));
 		m_Device = ConnectToDevice(m_nSelCamIndex);
 	}
+
+	if (m_Device != nullptr)
+		StartProc();
 }
 
 void CMDSSpinnakerSDKDlg::CameraStart()
 {
-	if(m_Device != nullptr)
-		AcquireImages(m_Device);
+	AcquireImages(m_Device);
 }
 
 // =============================================================================
@@ -754,6 +895,9 @@ LRESULT CMDSSpinnakerSDKDlg::OnAddLog(WPARAM wParam, LPARAM lParam)
 		// 가로 스크롤바 설정 업데이트
 		CreateHorizontalScroll();
 	}
+	m_LogListBox.Invalidate();
+	m_LogListBox.UpdateWindow();
+
 	return 0;
 }
 
@@ -786,13 +930,16 @@ void CMDSSpinnakerSDKDlg::AddLog(LPCTSTR lpszFormat, ...)
 	CString strDate;
 	CString formattedMessage;
 	va_list args;
+	wchar_t  buffer[1024];  // 충분한 크기의 버퍼를 할당
 
 	GetLocalTime(&cur_time);
 	strDate.Format(_T("%02d:%02d:%02d"), cur_time.wHour, cur_time.wMinute, cur_time.wSecond);
 
 	va_start(args, lpszFormat);
-	formattedMessage.FormatV(lpszFormat, args);
+	_vsnwprintf_s(buffer, sizeof(buffer) / sizeof(wchar_t), _TRUNCATE, lpszFormat, args);
 	va_end(args);
+
+	formattedMessage = buffer;
 
 	CString fullLogMessage;
 	fullLogMessage.Format(_T("[%s] %s\r\n"), strDate, formattedMessage);  // 로그 라인에 개행 문자 추가
@@ -817,9 +964,7 @@ void CMDSSpinnakerSDKDlg::AddLog(LPCTSTR lpszFormat, ...)
 	if (!messagePosted)
 	{
 		// 메시지 전송 실패시 처리
-		CString errorMessage;
-		errorMessage.Format(_T("Failed to post message to main window after %d retries"), maxRetries);
-		AddLog(0, errorMessage);
+		std::cerr << _T("Failed to post message to main window after ") << maxRetries << _T(" retries") << std::endl;
 		delete pStr; // 메모리 누수를 방지하기 위해 pStr 삭제
 	}
 }
@@ -854,9 +999,8 @@ UINT CMDSSpinnakerSDKDlg::ConsumerThreadProc(LPVOID param)
 }
 
 // =============================================================================
-void CMDSSpinnakerSDKDlg::OnBnClickedBtnStart()
+void CMDSSpinnakerSDKDlg::StartProc()
 {
-	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
 	if (m_Device == nullptr)
 		return;
 
@@ -868,11 +1012,34 @@ void CMDSSpinnakerSDKDlg::OnBnClickedBtnStart()
 		StartThreadProc();
 	}
 	else
-	{	
+	{
 		m_Device->AcquisitionStart();
-	}	
+	}
 }
 
+// =============================================================================
+void CMDSSpinnakerSDKDlg::OnBnClickedBtnSeq()
+{
+	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+	CString strLog;
+	if (!m_bSaveAsSEQ)
+	{
+		m_SEQSave.SetWindowText(_T("Recording...."));
+		SetStartRecordingFlag(true);
+
+		strLog.Format(_T("---------Camera Video Start Recording"));
+		AddLog(strLog);
+	}
+	else
+	{
+		m_SEQSave.SetWindowText(_T("SEQ Save"));
+		StopRecording();
+
+		strLog.Format(_T("---------Camera Video Stop Recording"));
+		AddLog(strLog);
+	}
+
+}
 // =============================================================================
 UINT CMDSSpinnakerSDKDlg::ThreadCam(LPVOID _mothod)
 {
@@ -893,6 +1060,7 @@ UINT CMDSSpinnakerSDKDlg::ThreadCam(LPVOID _mothod)
 
 				INodeMap& nodeMap = pCam->GetNodeMap();
 				ImagePtr pBufferData = pCam->GetNextImage();
+			
 				std::lock_guard<std::mutex> lock(pDlg->queueMutex);
 
 				pDlg->imageQueue.push(pBufferData);
@@ -902,16 +1070,13 @@ UINT CMDSSpinnakerSDKDlg::ThreadCam(LPVOID _mothod)
 		}
 		catch (const Spinnaker::Exception& e)
 		{
-			//if (REMOTE_DEBUG)
-			//{
-			//	strLog.Format(_T("Thread Message: %S\n"), e.what());
-			//	pDlg->AddLog(strLog);
-			//}
+
 		}
 	}
 	return 0;
 }
 
+// =============================================================================
 void CMDSSpinnakerSDKDlg::ConsumerThread()
 {
 	auto lastProcessTime = std::chrono::high_resolution_clock::now();
@@ -935,6 +1100,12 @@ void CMDSSpinnakerSDKDlg::ConsumerThread()
 				if (pBufferData && !pBufferData->IsIncomplete() && pBufferData->GetImageStatus() == SPINNAKER_IMAGE_STATUS_NO_ERROR)
 				{
 					byte* pImageBuffer = static_cast<byte*>(pBufferData->GetData());
+
+					if (GetStartRecordingFlag())
+					{
+						mm_timer.GetUTCTime(m_ts, m_ms, m_tzBias);
+						AddBufferToQueue(pBufferData);
+					}
 					DataProcessing(pImageBuffer); // 데이터 처리
 				}
 
@@ -1053,6 +1224,9 @@ void CMDSSpinnakerSDKDlg::ROIXYinBox(ushort uTempValue, double dScale, int nCurr
 			m_MaxSpot.tempValue = T.Value(CTemperature::Celsius);
 		}
 	}
+
+	m_Span = m_MaxSpot.tempValue - m_MinSpot.tempValue;
+	m_Level = (m_MaxSpot.tempValue + m_MinSpot.tempValue) / 2.0;
 }
 
 // =============================================================================
@@ -1091,6 +1265,8 @@ void CMDSSpinnakerSDKDlg::RenderDataSequence(byte* imageDataPtr)
 
 	fulldata = extractWholeImage(imageDataPtr, nArraysize, nWidth, nHeight);
 
+	UpdateTriggerCountsAndLineStates(std::move(fulldata), nWidth, nHeight);
+
 	cv::Rect roi = m_roi_rect;
 	if (IsRoiValid(roi, nWidth, nHeight))
 	{
@@ -1115,6 +1291,22 @@ void CMDSSpinnakerSDKDlg::RenderDataSequence(byte* imageDataPtr)
 			//delete pDisplayMat; // 메시지 전송 실패 시 메모리 해제
 		}
 
+		if (GetMouseImageSaveFlag())
+		{
+			SaveImage(displayImage);
+			SetMouseImageSaveFlag(FALSE);
+		}
+
+		if (GetStartRecordingFlag())
+		{
+			if (StartRecording(nWidth, nHeight, CameraFPS(m_Device)))
+			{
+				ClearQueue();
+				m_bSaveAsSEQ = true;
+			}
+
+		}
+
 		CleanupAfterProcessing();
 	}
 	catch (const std::exception& e) 
@@ -1123,6 +1315,35 @@ void CMDSSpinnakerSDKDlg::RenderDataSequence(byte* imageDataPtr)
 		AddLog(CString("Exception in RenderDataSequence: %S") + e.what());
 	}
 	std::this_thread::sleep_for(std::chrono::milliseconds(0));
+}
+
+// =============================================================================
+void CMDSSpinnakerSDKDlg::UpdateTriggerCountsAndLineStates(std::unique_ptr<uint16_t[]>&& data, int nWidth, int nHeight)
+{
+	FPGA_HEADER* pFPGA;
+
+	if (GetStartRecordingFlag())
+	{
+		if (m_CamModelList != CAM_MODEL::Ax5 || m_CamModelList != CAM_MODEL::BlackFly)
+		{
+			// Check trig count
+			pFPGA = (FPGA_HEADER*)&data[nHeight * nWidth];
+			if (pFPGA->dp1_trig_type & FPGA_TRIG_TYPE_MARK)
+			{
+				m_TrigCount1++;
+				m_TrigCount++;
+			}
+
+			m_LineState1 = pFPGA->dp1_trig_state ? 1 : 0;
+			m_LineState2 = pFPGA->dp2_trig_state ? 1 : 0;
+
+			if (pFPGA->dp2_trig_type & FPGA_TRIG_TYPE_MARK)
+			{
+				m_TrigCount2++;
+				m_TrigCount++;
+			}
+		}
+	}
 }
 
 // =============================================================================
@@ -1741,7 +1962,6 @@ int CMDSSpinnakerSDKDlg::FocusMethod(CameraPtr pCam, int methodIndex)
 	}
 }
 
-
 //=============================================================================
 double CMDSSpinnakerSDKDlg::CameraFPS(CameraPtr pCam)
 {
@@ -1780,7 +2000,6 @@ bool CMDSSpinnakerSDKDlg::SetAutoFocus()
 	return bFlag;
 }
 
-
 //=============================================================================
 bool CMDSSpinnakerSDKDlg::SetNUC()
 {
@@ -1795,7 +2014,7 @@ bool CMDSSpinnakerSDKDlg::SetNUC()
 		NUCAction->Execute();
 
 	CString strlog;
-	strlog.Format(_T("NUCAction Success"));
+	strlog.Format(_T("NUCAction Command Success"));
 	AddLog(strlog);
 
 	bFlag = true;
@@ -1854,9 +2073,9 @@ bool CMDSSpinnakerSDKDlg::GetTempRangeSearch(CameraPtr pCam)
 					}
 
 					// 로그를 기록합니다.
-		/*			strLog.Format(_T("QueryCase Value =  [%d] QueryCase LowLimit = %.2f QueryCase HighLimit = %.2f"), nCurrentCaseValue,
+					strLog.Format(_T("QueryCase Value =  [%d] QueryCase LowLimit = %.2f QueryCase HighLimit = %.2f"), nCurrentCaseValue,
 						m_dQueryCaseLowLimit[nCurrentCaseCnt], m_dQueryCaseHighLimit[nCurrentCaseCnt]);
-					AddLog(strLog);*/
+					AddLog(strLog);
 
 					nCurrentCaseCnt++;
 
@@ -1872,16 +2091,13 @@ bool CMDSSpinnakerSDKDlg::GetTempRangeSearch(CameraPtr pCam)
 			CString errorLog;
 			errorLog.Format(_T("Error occurred: %S"), e.what());
 			AddLog(errorLog);
-			return false;
+			bRtn = false;
+			return bRtn;
 		}
 	}
-	if (nCurrentCaseCnt >= 3)
-	{
-		m_nQueryCnt = nCurrentCaseCnt;
-		bRtn = true;
-	}
-	else
-		bRtn = false;
+	
+	m_nQueryCnt = nCurrentCaseCnt;
+	bRtn = true;
 
 	return bRtn;
 }
@@ -2178,7 +2394,7 @@ void CMDSSpinnakerSDKDlg::UpdateCalcParams()
 	if (m_Device->IsStreaming())
 	{
 		CString strValue;
-
+		
 		int nPos = FocusPos(m_Device);
 		double dFPS = CameraFPS(m_Device);
 
@@ -2272,13 +2488,52 @@ HBRUSH CMDSSpinnakerSDKDlg::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 {
 	HBRUSH hbr = CDialogEx::OnCtlColor(pDC, pWnd, nCtlColor);
 
-	// 다이얼로그의 배경 색상을 흰색으로 설정
-	if (nCtlColor == CTLCOLOR_DLG)
-	{
-		return m_hbrBackground;
-	}
+	UINT nID = pWnd->GetDlgCtrlID();
+	HBRUSH hbrRed = m_bRed;
+	HBRUSH hbrGreen = m_bGreen;
 
-	return hbr;
+	// 다이얼로그의 배경 색상을 흰색으로 설정
+
+	switch (nCtlColor)
+	{
+	case CTLCOLOR_DLG:
+		pDC->SetBkMode(TRANSPARENT);
+		pDC->SetBkColor(RGB(255, 255, 255));
+		m_hbrBackground = (HBRUSH)GetStockObject(NULL_BRUSH);
+		return m_hbrBackground;
+
+	case CTLCOLOR_LISTBOX:
+		switch (nID)
+		{
+		case IDC_CAM_LIST:
+		case IDC_LOG:
+			return (HBRUSH)::GetStockObject(WHITE_BRUSH);
+		}
+	case CTLCOLOR_STATIC:
+		pDC->SetBkMode(TRANSPARENT); // 텍스트 배경을 투명하게 설정
+		switch (nID)
+		{
+		case IDC_LIVE:
+			if (m_blink && GetStartRecordingFlag())
+			{
+				// 녹화 중일 때 깜박이는 효과
+				COLORREF color = m_blink ? RGB_RED : RGB_GREEN; // 빨강 또는 초록
+				pDC->SetBkColor(color);
+				HBRUSH hBrush = CreateSolidBrush(color); // 색상에 맞는 브러시 생성
+				return hBrush;
+			}
+			else
+			{
+				return (HBRUSH)GetStockObject(WHITE_BRUSH);
+			}
+		default:
+			return (HBRUSH)GetStockObject(WHITE_BRUSH);
+			break;
+
+		}
+	
+	}
+	return nullptr;
 }
 
 // =============================================================================
@@ -2412,5 +2667,809 @@ void CMDSSpinnakerSDKDlg::RadioCtrl(UINT radio_Index)
 
 	FocusMethod(m_Device, nIndex);
 	UpdateData(FALSE);
+}
 
+// =============================================================================
+CString CMDSSpinnakerSDKDlg::GetLocalIPAddress() 
+{
+	WSADATA wsaData;
+	WSAStartup(MAKEWORD(2, 2), &wsaData);
+
+	char hostname[256];
+	if (gethostname(hostname, sizeof(hostname)) == SOCKET_ERROR) 
+	{
+		WSACleanup();
+		return _T("");
+	}
+
+	struct addrinfo hints, * result = NULL;
+	ZeroMemory(&hints, sizeof(hints));
+	hints.ai_family = AF_INET; // IPv4 설정
+	if (getaddrinfo(hostname, NULL, &hints, &result) != 0) 
+	{
+		WSACleanup();
+		return _T("");
+	}
+
+	char ipString[INET_ADDRSTRLEN];  // IPv4 주소를 위한 충분한 크기
+	CString localIP;
+
+	for (struct addrinfo* ptr = result; ptr != NULL; ptr = ptr->ai_next) 
+	{
+		if (ptr->ai_family == AF_INET) {  // IPv4 주소 확인
+			struct sockaddr_in* sockaddr_ipv4 = (struct sockaddr_in*)ptr->ai_addr;
+			inet_ntop(AF_INET, &sockaddr_ipv4->sin_addr, ipString, sizeof(ipString));
+			localIP = CString(ipString);
+			break;
+		}
+	}
+
+	freeaddrinfo(result);
+	WSACleanup();
+	return localIP;
+}
+
+// =============================================================================
+// IP 주소 문자열을 숫자로 변환하는 함수
+unsigned long CMDSSpinnakerSDKDlg::ConvertIPStringToNum(const CString& ipStr)
+{
+	WSADATA wsaData;
+	WSAStartup(MAKEWORD(2, 2), &wsaData);
+
+	struct sockaddr_in sa;
+	// inet_pton: IPv4 주소의 문자열을 숫자로 변환
+	inet_pton(AF_INET, CT2A(ipStr), &(sa.sin_addr));
+
+	WSACleanup();
+	return sa.sin_addr.S_un.S_addr;
+}
+
+// =============================================================================
+std::vector<CString> CMDSSpinnakerSDKDlg::SplitIP(const CString& ip)
+{
+	std::vector<CString> parts;
+	CString strToken;
+	int curPos = 0;
+
+	strToken = ip.Tokenize(_T("."), curPos);
+	while (curPos != -1) 
+	{
+		parts.push_back(strToken);
+		strToken = ip.Tokenize(_T("."), curPos);
+	}
+	return parts;
+}
+
+// =============================================================================
+bool CMDSSpinnakerSDKDlg::IsThirdOctetDifferent(const CString& ip1, const CString& ip2)
+{
+	std::vector<CString> ip1Parts = SplitIP(ip1);
+	std::vector<CString> ip2Parts = SplitIP(ip2);
+
+	return ip1Parts.size() == 4 && ip2Parts.size() == 4 && ip1Parts[2] != ip2Parts[2];
+}
+
+// =============================================================================
+bool CMDSSpinnakerSDKDlg::SetCameraIP(CameraPtr pCam, const CString& newIP)
+{
+	INodeMap& nodeMap = pCam->GetTLDeviceNodeMap();
+
+	// 강제 IP 설정 노드
+	CIntegerPtr ptrForceIPAddress = nodeMap.GetNode("GevDeviceForceIPAddress");
+	CIntegerPtr ptrForceSubnetMask = nodeMap.GetNode("GevDeviceForceSubnetMask");
+	CIntegerPtr ptrForceGateway = nodeMap.GetNode("GevDeviceForceGateway");
+	CCommandPtr ptrForceIP = nodeMap.GetNode("GevDeviceForceIP");
+
+	if (!ptrForceIPAddress || !ptrForceSubnetMask || !ptrForceGateway || !ptrForceIP) 
+	{
+		AddLog(_T("Failed to retrieve one or more Force IP related nodes."));
+		return false;
+	}
+
+	// IP 주소 설정
+	struct sockaddr_in addr;
+	if (inet_pton(AF_INET, CT2A(newIP), &(addr.sin_addr)) != 1) 
+	{
+		AddLog(_T("Failed to convert new IP address."));
+		return false;
+	}
+	ptrForceIPAddress->SetValue(ntohl(addr.sin_addr.S_un.S_addr));
+	CString logMsg;
+	//logMsg.Format(_T("Setting IP Address to: %s"), newIP);
+	//AddLog(logMsg);
+
+	// 서브넷 마스크 설정 (255.255.255.0)
+	inet_pton(AF_INET, "255.255.255.0", &(addr.sin_addr));
+	ptrForceSubnetMask->SetValue(ntohl(addr.sin_addr.S_un.S_addr));
+
+	// 게이트웨이 IP 파싱 및 설정
+	std::vector<CString> ipOctets = SplitIP(newIP);
+	CString gatewayIP = ipOctets[0] + _T(".") + ipOctets[1] + _T(".") + ipOctets[2] + _T(".1");
+	if (inet_pton(AF_INET, CT2A(gatewayIP), &(addr.sin_addr)) != 1) 
+	{
+		AddLog(_T("Failed to convert gateway IP address."));
+		return false;
+	}
+	ptrForceGateway->SetValue(ntohl(addr.sin_addr.S_un.S_addr));
+	//logMsg.Format(_T("Setting Gateway to: %s"), gatewayIP);
+	//AddLog(logMsg);
+
+
+	// 설정된 값 확인
+	uint32_t setIPAddress = ptrForceIPAddress->GetValue();
+	uint32_t setSubnetMask = ptrForceSubnetMask->GetValue();
+	uint32_t setGateway = ptrForceGateway->GetValue();
+	CString ipStr = ConvertIPToString(setIPAddress);
+	logMsg.Format(_T("Confirmed IP Address: %s"), ipStr);
+	AddLog(logMsg);
+	ipStr = ConvertIPToString(setSubnetMask);
+	logMsg.Format(_T("Confirmed Subnet Mask: %s"), ipStr);
+	AddLog(logMsg);
+	ipStr = ConvertIPToString(setGateway);
+	logMsg.Format(_T("Confirmed Gateway: %s"), ipStr);
+	AddLog(logMsg);
+
+	// Force IP 명령 실행
+	ptrForceIP->Execute();
+	AddLog(_T("IP address, subnet mask, and gateway forced successfully."));
+	return true;
+}
+
+void CMDSSpinnakerSDKDlg::OnBnClickedBtnChangeip()
+{
+	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+
+	// 로컬 IP 주소 얻기
+	CString localIP = GetLocalIPAddress();
+	if (localIP.IsEmpty()) {
+		AddLog(_T("Failed to retrieve local IP address."));
+		return;
+	}
+
+	CameraPtr pCam = nullptr;
+	bool isCameraFound = false;
+	CIntegerPtr ptrIP;
+
+	CString ipStr;
+
+	// 카메라 리스트 순회
+	for (int i = 0; i < m_CamList.GetSize(); i++) {
+		pCam = m_CamList.GetByIndex(i);
+		if (!pCam || !pCam->IsValid()) {
+			continue; // 유효하지 않은 카메라는 건너뜀
+		}
+		INodeMap& nodeMap = pCam->GetTLDeviceNodeMap();
+		ptrIP = nodeMap.GetNode("GevDeviceIPAddress");
+		if (IsReadable(ptrIP))
+		{
+			int64_t nValue = ptrIP->GetValue();
+			ipStr = ConvertIPToString(nValue);
+		}
+		if (IsSameNetwork(localIP, ipStr)) 
+		{
+			isCameraFound = true;
+			break; // 일치하는 카메라 찾으면 반복 중단
+		}
+	}
+
+	if (!isCameraFound)
+	{
+		AddLog(_T("No camera is on the same network segment as the local machine."));
+		return;
+	}
+
+	// 카메라의 현재 IP 주소 얻기
+	INodeMap& nodeMap = pCam->GetTLDeviceNodeMap();
+	CString currentIPStr = ConvertIPToString(ptrIP->GetValue());
+	std::vector<CString> currentIPOctets = SplitIP(currentIPStr);
+
+	// 사용자로부터 네 번째 옥텟 값 받아오기
+	CString fourthOctet;
+	GetDlgItemText(IDC_ED_SETIP, fourthOctet);
+	std::vector<CString> localIPOctets = SplitIP(localIP);
+	// 새 IP 주소 생성
+	if (localIPOctets.size() == 4 && currentIPOctets.size() == 4) 
+	{
+		CString newIP = localIPOctets[0] + _T(".") + localIPOctets[1] + _T(".") + localIPOctets[2] + _T(".") + fourthOctet;
+
+		// 카메라 IP 변경 시도
+		if (!SetCameraIP(pCam, newIP)) 
+		{
+			CString strLog;
+			strLog.Format(_T("Failed to change camera IP to %s."), newIP);
+			AddLog(strLog);
+		}
+		else 
+		{
+			CString strLog;
+			strLog.Format(_T("Camera IP changed successfully to %s."), newIP);
+			AddLog(strLog);
+
+			m_CamListBox.ResetContent();
+			UpdateWindow();
+			FindCamera();
+		}
+	}
+	else 
+	{
+		CString strLog = _T("Invalid IP address format.");
+		AddLog(strLog);
+	}
+}
+
+
+CString CMDSSpinnakerSDKDlg::GetLocalNetworkBaseAddress(const CString& cameraIP)
+{
+	ULONG buflen = sizeof(IP_ADAPTER_ADDRESSES);
+	std::vector<BYTE> buffer(buflen);
+
+	// Get the adapter addresses
+	ULONG ret = GetAdaptersAddresses(AF_INET, GAA_FLAG_INCLUDE_PREFIX, NULL, (IP_ADAPTER_ADDRESSES*)&buffer[0], &buflen);
+	if (ret == ERROR_BUFFER_OVERFLOW) {
+		buffer.resize(buflen);
+		ret = GetAdaptersAddresses(AF_INET, GAA_FLAG_INCLUDE_PREFIX, NULL, (IP_ADAPTER_ADDRESSES*)&buffer[0], &buflen);
+	}
+
+	if (ret == NO_ERROR) {
+		IP_ADAPTER_ADDRESSES* adapter = (IP_ADAPTER_ADDRESSES*)&buffer[0];
+		while (adapter) {
+			IP_ADAPTER_UNICAST_ADDRESS* address = adapter->FirstUnicastAddress;
+			while (address) {
+				if (address->Address.lpSockaddr->sa_family == AF_INET) {
+					sockaddr_in* sa_in = (sockaddr_in*)address->Address.lpSockaddr;
+					char ip[INET_ADDRSTRLEN];
+					struct sockaddr_in sa;
+					inet_ntop(AF_INET, &(sa.sin_addr), ip, INET_ADDRSTRLEN);
+					CString currentIP = CA2T(ip);  // char*를 CString으로 변환
+
+					// Compare the current IP with the camera IP
+					if (IsSameNetwork(currentIP, cameraIP)) {
+						return currentIP.Left(currentIP.ReverseFind('.'));
+					}
+				}
+				address = address->Next;
+			}
+			adapter = adapter->Next;
+		}
+	}
+
+	return _T("");
+}
+
+bool CMDSSpinnakerSDKDlg::IsSameNetwork(const CString& ip1, const CString& ip2)
+{
+	// Implement the actual network comparison here.
+	// This function is a placeholder and should be implemented properly.
+	return ip1.Left(ip1.ReverseFind('.')) == ip2.Left(ip2.ReverseFind('.'));
+}
+
+//=============================================================================
+void CMDSSpinnakerSDKDlg::AddBufferToQueue(ImagePtr buffer)
+{
+	std::lock_guard<std::mutex> lock(bufferMutex);
+
+	ImagePtr copiedBuffer = CopyBuffer(buffer);
+	if (!copiedBuffer)
+	{
+		CString logMessage;
+		logMessage.Format(_T("Failed to copy buffer."));
+		AddLog(logMessage);
+		return;
+	}
+
+	int height = copiedBuffer->GetHeight();
+	bufferQueue.push(copiedBuffer);
+
+	bufferNotEmpty.notify_one();
+}
+
+/**
+ * @brief 주어진 PvBuffer 객체의 복사본을 생성합니다.
+ *
+ * 이 함수는 제공된 PvBuffer 객체의 깊은 복사본을 생성합니다. 원본 버퍼의 데이터를 복사하여
+ * 새로운 PvBuffer 객체에 첨부합니다. 복사가 성공적으로 완료되지 않으면, 할당된 메모리를 해제하고
+ * nullptr을 반환합니다.
+ *
+ * @param originalBuffer 복사할 원본 PvBuffer 객체입니다.
+ * @return PvBuffer* 원본 버퍼의 데이터를 포함하는 새로운 PvBuffer 객체입니다.
+ */
+ //=============================================================================
+ImagePtr CMDSSpinnakerSDKDlg::CopyBuffer(ImagePtr originalBuffer)
+{
+	// 원본 이미지에서 데이터를 검사합니다.
+	if (!originalBuffer)
+	{
+		CString logMessage;
+		logMessage.Format(_T("Original buffer data is invalid."));
+		AddLog(logMessage);
+		return nullptr;
+	}
+
+	// 원본 이미지 데이터를 깊은 복사합니다.
+	ImagePtr copiedBuffer = Image::Create();
+
+	// DeepCopy the original image into the new image
+	copiedBuffer->DeepCopy(originalBuffer);
+
+	if (!copiedBuffer)
+	{
+		CString logMessage;
+		logMessage.Format(_T("Failed to copy buffer."));
+		AddLog(logMessage);
+		return nullptr;
+	}
+
+	return copiedBuffer;
+}
+
+//=============================================================================
+/*
+ [condition_variable]
+ 멀티스레드 프로그래밍에서 스레드 간의 효율적인 통신과 동기화를 위한 로직이다.
+ 이를 통해 특정 조건이 만족될 때까지 스레드를 대기시키고, 조건이 만족되면 대기 중인 스레드를 동작시킨다.
+
+*@brief 큐에서 PvBuffer 객체를 가져옵니다.
+*
+* 이 함수는 Q에 버퍼가 있을 때까지 대기한 후, Q에서 버퍼를 가져와 제거.
+* 큐 작업 중 스레드 안전성을 보장하기 위해 뮤텍스 사용
+*
+* @return PvBuffer * Q에서 가져온 PvBuffer
+*/
+//=============================================================================
+ImagePtr CMDSSpinnakerSDKDlg::GetBufferFromQueue()
+{
+	// 큐 작업 중 스레드 안전성을 보장하기 위해 뮤텍스를 잠급니다.
+	std::unique_lock<std::mutex> lock(bufferMutex);
+
+	// 큐가 비어 있지 않을 때까지 대기합니다. 대기 중에는 잠금이 해제됩니다.
+	bufferNotEmpty.wait(lock, [this] { return !bufferQueue.empty(); });
+
+	// 큐의 맨 앞에서 버퍼를 가져와 큐에서 제거합니다.
+	ImagePtr buffer = bufferQueue.front();
+	bufferQueue.pop();
+
+	// 버퍼에서 이미지를 가져와 높이를 로그로 남깁니다.
+	int height = buffer->GetHeight();
+	//CString logMessage;
+	//logMessage.Format(_T("Height: %d , Buffer retrieved from queue. Address: %p,"), height, buffer);
+	//Common::GetInstance()->AddLog(0, logMessage);
+
+	return buffer;
+}
+
+//=============================================================================
+void CMDSSpinnakerSDKDlg::ClearQueue()
+{
+	std::lock_guard<std::mutex> lock(bufferMutex);
+	while (!bufferQueue.empty())
+	{
+		ImagePtr buffer = bufferQueue.front();
+		bufferQueue.pop();
+	}
+}
+
+//=============================================================================
+// Q에 담겨있는 버퍼 갯수 
+int CMDSSpinnakerSDKDlg::GetQueueBufferCount()
+{
+	std::lock_guard<std::mutex> lock(bufferMutex);
+
+	return (int)bufferQueue.size();
+}
+
+// =============================================================================
+void CMDSSpinnakerSDKDlg::SetStartRecordingFlag(bool bFlag)
+{
+	m_bStartRecording = bFlag;
+
+
+	if (bFlag)
+	{
+		m_bSaveAsSEQ = true;
+		m_iCurrentSEQImage = 0;
+	}
+}
+
+// =============================================================================
+bool CMDSSpinnakerSDKDlg::GetStartRecordingFlag()
+{
+	return m_bStartRecording;
+}
+
+// =============================================================================
+bool CMDSSpinnakerSDKDlg::StartRecording(int frameWidth, int frameHeight, double frameRate)
+{
+	CString strLog = _T("");
+
+	if (m_isRecording)
+	{
+		strLog.Format(_T("---------Camera[%d] Already recording"));
+		AddLog(strLog);
+
+		return false; // 이미 녹화 중이므로 false 반환
+	}
+	m_isRecording = true;
+
+	// 녹화 이미지 생성을 위한 쓰레드 시작
+	std::thread recordThread(&CMDSSpinnakerSDKDlg::RecordThreadFunction, this, frameRate);
+	recordThread.detach();  // 안전한 쓰레드 종료 관리
+
+	return true; // 녹화 시작 성공 반환
+}
+
+// =============================================================================
+void CMDSSpinnakerSDKDlg::RecordThreadFunction(double frameRate)
+{
+	while (GetStartRecordingFlag())
+	{
+		if(GetQueueBufferCount() > 0)
+			SaveSEQ(m_nWidth, m_nHeight);
+			
+		std::this_thread::sleep_for(std::chrono::milliseconds(0));
+	}
+}
+
+// =============================================================================
+void CMDSSpinnakerSDKDlg::StopRecording()
+{
+	if (!m_isRecording)
+	{
+		return;
+	}
+
+	CString cstrFilePath(m_SEQfilePath.c_str());
+	CString strLog = _T("");
+
+	if (m_SEQFile.m_hFile != CFile::hFileNull)
+	{
+		m_SEQFile.Close();
+	}
+	 
+	m_isRecording = false;
+	m_bSaveAsSEQ = false;
+	SetStartRecordingFlag(false);
+	m_blink = false;
+	m_lbLive.Invalidate();
+	m_lbLive.UpdateWindow();
+
+}
+
+// =============================================================================
+bool CMDSSpinnakerSDKDlg::StartSEQRecording(CString strfilePath)
+{
+
+	if (m_SEQFile.m_hFile != CFile::hFileNull)
+	{
+		m_SEQFile.Close();  // 이미 열려 있는 파일이 있다면 닫기
+	}
+
+	m_SEQfilePath = CT2A(strfilePath);  // 파일 경로 저장
+	CFileException e;
+
+	try
+	{
+		m_SEQFile.Open(strfilePath, CFile::modeCreate | CFile::modeReadWrite | CFile::typeBinary);
+	}
+
+	catch (CFileException* e)
+	{
+		std::cerr << "Failed to open file: " << e->m_cause << "\n";
+		e->Delete();
+		m_bSaveAsSEQ = false;
+		return false;
+	}
+	return true;
+}
+
+
+//=============================================================================
+// Trig flag bits - description
+// Bit 15: 1=This trig info is relevant 
+//         0=Look for trig info in pixel data instead
+// Bit 5:  1=Stop trig type
+// Bit 4:  1=Start trig type
+// Bit 3:  0=Device 1=Serial port trig (or LPT)
+// Bit 2:  0=TTL       1=OPTO 
+// Bit 1:  0=Negative  1=Positive
+// Bit 0:  0=No trig   1=Trigged
+//=============================================================================
+void CMDSSpinnakerSDKDlg::SaveSEQ(int nWidth, int nHeight)
+{
+	auto currentTime = std::chrono::system_clock::now();
+	bool bFileCreateFlag = false;
+
+	// 헤더가 포함된 데이터인지 유효성 체크
+
+	ImagePtr pBuf;
+	pBuf = GetBufferFromQueue();
+	
+	int Height = 0;
+	ImagePtr lImage = m_Device->GetNextImage();
+	Height = lImage->GetHeight();
+
+	// 헤더 데이터가 포함되지 않으면 바로 리턴한다
+	if (Height == 480 || Height == 348)
+	{
+		StopRecording();
+		return;
+	}
+
+	// 로직 첫 진입 시 파일 만들기 
+	if (m_iCurrentSEQImage == 0)
+	{
+		std::time_t nowAsTimeT = std::chrono::system_clock::to_time_t(currentTime);
+		std::tm localTime;
+		localtime_s(&localTime, &nowAsTimeT);
+		char timeStr[50];
+		strftime(timeStr, sizeof(timeStr), "_%Y_%m_%d_%H_%M_%S", &localTime);
+		CString videoDataPath = _T("VideoData\\");  // 폴더 구분자를 명확히 추가
+		CString SavePath = SetFolderPath(videoDataPath);
+		CString fullSavePath = SetFolderPath(videoDataPath);
+		std::string strSavePath = CString2str(fullSavePath);
+
+		if (!PathIsDirectory(fullSavePath))
+		{
+			SHCreateDirectoryEx(NULL, fullSavePath, NULL);
+		}
+
+		std::string strSeqName = strSavePath + "SEQ" + std::string(timeStr) + ".seq";
+		CString strSeqFileName = str2CString(strSeqName.c_str());
+
+		bFileCreateFlag = StartSEQRecording(strSeqFileName);
+		if (!bFileCreateFlag)
+			return;
+	}
+
+	// buffer to SEQ 로직
+	int nPixelSize = nHeight * nWidth * 2;
+	uint8_t* pSrc = nullptr;
+	pSrc = (uint8_t*)pBuf->GetData();
+
+	if (!pSrc || *pSrc == 0) return;
+
+	if (m_bSaveAsSEQ)
+	{
+		FPGA_HEADER* pFPGA;
+		FLIRFILEHEAD* pHeader;
+		FLIRFILEINDEX* pIndex;
+		pFPGA = (FPGA_HEADER*)&pSrc[nPixelSize];
+		WORD trgflags = 0;
+		GEOMETRIC_INFO_T geom;
+		DWORD dwNumUsedIndex = 0;
+
+		memset(&geom, 0, sizeof(GEOMETRIC_INFO_T));
+
+		geom.firstValidX = 0;
+		geom.firstValidY = 0;
+		geom.lastValidX = nWidth - 1;
+		geom.lastValidY = nHeight - 1;
+		geom.imageHeight = nHeight;
+		geom.imageWidth = nWidth;
+		geom.pixelSize = 2;
+
+		pHeader = (FLIRFILEHEAD*)&pSrc[nPixelSize + sizeof(FPGA_HEADER)];
+		pIndex = (FLIRFILEINDEX*)&pSrc[nPixelSize + sizeof(FPGA_HEADER) + sizeof(FLIRFILEHEAD)];
+		dwNumUsedIndex = pHeader->dwNumUsedIndex;
+
+		ULONG offs = sizeof(FLIRFILEHEAD) + (sizeof(FLIRFILEINDEX) * dwNumUsedIndex);
+
+		for (int i = 0; i < (int)dwNumUsedIndex; i++)
+		{
+			pIndex[i].dwChecksum = 0;
+			if (pIndex[i].wMainType == FFF_TAGID_Pixels)
+			{
+				pIndex[i].dwDataSize = nPixelSize + sizeof(GEOMETRIC_INFO_T);
+			}
+			pIndex[i].dwDataPtr = offs;
+			offs += pIndex[i].dwDataSize;
+		}
+		if (pFPGA == nullptr || pHeader == nullptr || pIndex == nullptr) 
+		{
+			AddLog(_T("Data Fail"));
+			return;
+		}
+
+		try
+		{
+			if (!pHeader || !pIndex) {
+				AddLog(_T("pHeader, pIndex NULL"));
+				return;
+			}
+
+			// Write to file
+			if (m_SEQFile.m_hFile != CFile::hFileNull)  // 파일이 열려 있는지 확인
+			{
+				m_SEQFile.SeekToEnd(); // Ensure the file pointer is at the correct position before writing
+				m_SEQFile.Write(pHeader, sizeof(FLIRFILEHEAD));
+				m_SEQFile.Write(pIndex, sizeof(FLIRFILEINDEX) * dwNumUsedIndex);
+			}
+
+			for (int i = 0; i < (int)dwNumUsedIndex; i++)
+			{
+				if (pIndex[i].wMainType == FFF_TAGID_BasicData)
+				{
+					PBYTE pData;
+					BI_DATA_T* pBI;
+
+					pData = (PBYTE)&pIndex[dwNumUsedIndex];
+					pBI = (BI_DATA_T*)pData;
+
+					if (!pData) {
+						AddLog(_T("pData null"));
+						return;
+					}
+
+					pBI->GeometricInfo.pixelSize = 2;
+					pBI->GeometricInfo.imageHeight = nHeight;
+					pBI->GeometricInfo.imageWidth = nWidth;
+					pBI->ImageInfo.imageTime = (unsigned long)m_ts;
+					pBI->ImageInfo.imageMilliTime = m_ms;
+					pBI->ImageInfo.timeZoneBias = m_tzBias;
+
+					pBI->PresentParameters.level = m_Level;
+					pBI->PresentParameters.span = m_Span;
+
+					// Transfer trig info - if any
+					if ((pFPGA->dp1_trig_type | pFPGA->dp2_trig_type) &
+						(FPGA_TRIG_TYPE_MARK |
+							FPGA_TRIG_TYPE_MARK_START |
+							FPGA_TRIG_TYPE_MARK_STOP)
+						)
+					{
+
+						trgflags = 0x8000; // Trig info is relevant 
+						if ((pFPGA->dp1_trig_type | pFPGA->dp2_trig_type) & FPGA_TRIG_TYPE_MARK)
+							trgflags |= 0x0001; // Normal trig mark
+						if ((pFPGA->dp1_trig_type | pFPGA->dp2_trig_type) & FPGA_TRIG_TYPE_MARK_START)
+							trgflags |= 0x0010; // Start trig type
+						if ((pFPGA->dp1_trig_type | pFPGA->dp2_trig_type) & FPGA_TRIG_TYPE_MARK_STOP)
+							trgflags |= 0x0020; // Stop trig type
+					}
+
+					pBI->ImageInfo.trigFlags = trgflags;
+					pBI->ImageInfo.trigCount = m_TrigCount;
+					pBI->ImageInfo.trigHit = 0;
+					pBI->ImageInfo.trigInfoType = 1;
+
+					// Save a copy of geometric data
+					memcpy(&geom, pData, sizeof(GEOMETRIC_INFO_T));
+
+					if (m_SEQFile.m_hFile != CFile::hFileNull)  // 파일이 열려 있는지 확인
+					{
+						// Write the modified Basic Image data block to file
+						m_SEQFile.Write(pData, pIndex[i].dwDataSize);
+					}
+				}
+			}
+
+			if (m_SEQFile.m_hFile != CFile::hFileNull)  // 파일이 열려 있는지 확인
+			{
+				m_SEQFile.Write(&geom, sizeof(GEOMETRIC_INFO_T));
+				m_SEQFile.Write(pSrc, nPixelSize);
+				m_iCurrentSEQImage++;
+			}
+		}
+		catch (CFileException* e)
+		{
+			return;
+		}
+	}
+}
+
+// =============================================================================
+CString CMDSSpinnakerSDKDlg::str2CString(const char* _str)
+{
+	CString str2;
+	str2 = (CString)_str;
+
+	return str2;
+
+}
+// =============================================================================
+std::string CMDSSpinnakerSDKDlg::CString2str(CString _str)
+{
+
+	// Convert a TCHAR string to a LPCSTR
+	CT2CA pszConvertedAnsiString(_str);
+
+	// Construct a std::string using the LPCSTR input
+	std::string s(pszConvertedAnsiString);
+
+	return s;
+}
+
+// =============================================================================
+CString CMDSSpinnakerSDKDlg::SetFolderPath(CString _str)
+{
+	// 프로그램 실행 경로에 지정된 문자열을 연결하는 함수.
+	TCHAR path1[_MAX_DIR];
+	GetModuleFileName(NULL, path1, sizeof path1);
+
+	CString strPath = path1;
+	CString rootpath, path, Lfilepath, Rfilepath;
+	int i = strPath.ReverseFind('\\');
+	strPath = strPath.Left(i);
+	CString str;
+	str.Format(_T("%s\\%s"), (LPCTSTR)strPath, _str);
+
+	//디렉토리 존재 여부 확인
+	DWORD dwAttrib = GetFileAttributes(str);
+	if (dwAttrib == INVALID_FILE_ATTRIBUTES)
+	{
+		// 디렉토리가 존재하지 않는 경우, 디렉토리를 먼저 생성
+		CString directoryPath = str.Left(str.ReverseFind('\\'));
+		if (!PathIsDirectory(directoryPath))
+		{
+			SHCreateDirectoryEx(NULL, directoryPath, NULL);
+		}
+	}
+
+	return str;
+}
+
+// =============================================================================
+void CMDSSpinnakerSDKDlg::SetMouseImageSaveFlag(bool bFlag)
+{
+	m_bMouseImageSave = bFlag;
+}
+// =============================================================================
+bool CMDSSpinnakerSDKDlg::GetMouseImageSaveFlag()
+{
+	return m_bMouseImageSave;
+}
+
+// =============================================================================
+std::string CMDSSpinnakerSDKDlg::GenerateFileNameWithTimestamp(const std::string& basePath, const std::string& prefix, const std::string& extension)
+{
+	// 현재 시간 정보 가져오기
+	auto currentTime = std::chrono::system_clock::now();
+	auto now = std::chrono::system_clock::to_time_t(currentTime);
+	struct tm localTime;
+	localtime_s(&localTime, &now);
+
+	// 시간 정보를 이용하여 파일 이름 생성
+	char timeStr[50];
+	strftime(timeStr, sizeof(timeStr), "_%Y_%m_%d_%H_%M_%S", &localTime);
+
+	// 최종 파일 경로 생성
+	std::string filePath = basePath + prefix + timeStr + extension;
+
+	return filePath;
+}
+
+// =============================================================================
+bool CMDSSpinnakerSDKDlg::SaveImage(const cv::Mat& image)
+{
+
+	CString videoDataPath = _T("ImageData\\");  // 폴더 구분자를 명확히 추가
+	CString SavePath = SetFolderPath(videoDataPath);
+	CString fullSavePath = SetFolderPath(videoDataPath);
+	std::string strSavePath = CString2str(fullSavePath);
+
+	if (!PathIsDirectory(fullSavePath))
+	{
+		SHCreateDirectoryEx(NULL, fullSavePath, NULL);
+	}
+
+	std::string basePath = strSavePath; // 이미지 저장 경로
+	std::string prefix = "Overlayimage"; // 파일 이름 접두사
+	std::string extension = ".bmp"; // 확장자
+
+	// 파일 이름 생성
+	std::string filePath = GenerateFileNameWithTimestamp(basePath, prefix, extension);
+
+	// 이미지 저장
+	if (!cv::imwrite(filePath, image))
+	{
+		// 오류 처리
+		return false;
+	}
+
+	// 성공적으로 저장한 경우 로그 출력
+	CString strLog;
+	std::wstring filePathW(filePath.begin(), filePath.end());
+	strLog.Format(_T("Completed writeback to image file: \n%s"), filePathW.c_str());
+	AddLog(strLog);
+
+	return true;
 }

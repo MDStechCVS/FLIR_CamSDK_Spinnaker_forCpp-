@@ -5,6 +5,7 @@
 const TCHAR* ColormapArray::colormapStrings[] =
 {
     _T("Iron"),
+    _T("Gray"),
     _T("BoardDetection"),
     _T("MDS"),
     _T("Rainbow"),
@@ -31,6 +32,7 @@ PaletteManager::PaletteManager()
     : palettes(
         {
         {PALETTE_TYPE::PALETTE_IRON, std::vector<std::string>()},
+         {PALETTE_TYPE::PALETTE_GRAY, std::vector<std::string>()},
         {PALETTE_TYPE::PALETTE_BOARDDETECTION, std::vector<std::string>()},
         {PALETTE_TYPE::PALETTE_MDS, std::vector<std::string>()},
         {PALETTE_TYPE::PALETTE_RAINBOW, std::vector<std::string>()},
@@ -61,6 +63,7 @@ void PaletteManager::init(const std::string& baseDir)
 void PaletteManager::initPalettes(const std::string& baseDir)
 {
     palettes[PALETTE_TYPE::PALETTE_IRON] = loadPaletteFromFile(baseDir, "paletteType_Iron.txt");
+    palettes[PALETTE_TYPE::PALETTE_GRAY] = loadPaletteFromFile(baseDir, "paletteType_Gray.txt");
     palettes[PALETTE_TYPE::PALETTE_BOARDDETECTION] = loadPaletteFromFile(baseDir, "paletteType_BoardDetection.txt");
     palettes[PALETTE_TYPE::PALETTE_MDS] = loadPaletteFromFile(baseDir, "paletteType_MDS.txt");
     palettes[PALETTE_TYPE::PALETTE_RAINBOW] = loadPaletteFromFile(baseDir, "paletteType_Rainbow.txt");

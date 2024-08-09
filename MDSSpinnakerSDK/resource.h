@@ -5,10 +5,10 @@
 #define IDD_MDSSPINNAKERSDK_DIALOG      102
 #define IDR_MAINFRAME                   128
 #define IDC_BTN_DISCONNECT              1000
-#define IDC_BTN_CONNECT                 1001
+#define IDC_BTN_START                   1001
 #define IDC_CAM_LIST                    1002
 #define IDC_LOG                         1003
-#define IDC_BTN_START                   1004
+#define IDC_BTN_SEQ                     1004
 #define IDC_CAM                         1005
 #define IDC_CB_COLORMAP                 1006
 #define IDC_CB_FPS                      1007
@@ -26,6 +26,10 @@
 #define IDC_ST_FOCUS_POS                1019
 #define IDC_FOCUS_COARSE                1020
 #define IDC_FOCUS_FINE                  1021
+#define IDC_BTN_CHANGEIP                1022
+#define IDC_ED_SETIP                    1023
+#define IDC_LIVE                        1024
+#define ID_POPUP_MENUITEM1              32111
 
 // Next default values for new objects
 // 
@@ -33,7 +37,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        130
 #define _APS_NEXT_COMMAND_VALUE         32771
-#define _APS_NEXT_CONTROL_VALUE         1021
+#define _APS_NEXT_CONTROL_VALUE         1025
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

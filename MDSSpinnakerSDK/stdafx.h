@@ -54,10 +54,18 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <sstream>
 #include <thread>
 #include <windows.h>
 #include <complex>
 #include <regex>
+#include <winsock2.h>
+#include <iphlpapi.h>
+#include <WS2tcpip.h>
+#include "mmsystem.h"
+#include <ctime>
+#include <sys/timeb.h>
+#include <condition_variable>
 
 #include <Spinnaker.h>
 #include <SpinGenApi/SpinnakerGenApi.h>
@@ -71,11 +79,23 @@
 #include "fff.h"
 #include "MDSColorpalette.h"
 
+#pragma comment(lib, "iphlpapi.lib")
+#pragma comment(lib, "ws2_32.lib")
+
 #define WM_UPDATE_IMAGE (WM_USER + 1)
 #define WM_DISPLAY_IMAGE (WM_USER + 2)
 
 using namespace std;
 using namespace cv;
+
+#define RGB_BLACK			RGB(0,0,0)
+#define RGB_RED				RGB(255,0,0)
+#define RGB_BLUE			RGB(0,0,255)
+#define RGB_GREEN			RGB(0,255,0)
+#define RGB_WHITE			RGB(255,255,255)
+#define RGBYELLOW			RGB(255,255,0)
+#define RGB_SKYBLUE			RGB(0,128,255)
+#define RGB_PURPLE			RGB(255,0,255)
 
 #define NOMINMAX 
 

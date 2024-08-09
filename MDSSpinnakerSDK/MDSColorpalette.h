@@ -10,6 +10,7 @@ struct ColormapArray
 enum class PaletteTypes
 {
     PALETTE_IRON = 0,
+    PALETTE_GRAY,
     PALETTE_BOARDDETECTION,
     PALETTE_MDS,
     PALETTE_RAINBOW,
