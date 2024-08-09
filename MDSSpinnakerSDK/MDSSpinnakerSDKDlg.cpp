@@ -295,8 +295,6 @@ void CMDSSpinnakerSDKDlg::InitVariables()
 
 	SetDlgItemText(IDC_ED_ROI_X, _T("0"));
 	SetDlgItemText(IDC_ED_ROI_Y, _T("0"));
-	SetDlgItemText(IDC_ED_ROI_WIDTH, _T("640"));
-	SetDlgItemText(IDC_ED_ROI_HEIGHT, _T("480"));
 
 	//Defalut
 	m_roi_rect.x = 0;
@@ -751,6 +749,12 @@ bool CMDSSpinnakerSDKDlg::FFF_HeightSummary(CameraPtr pCam)
 
 	m_roi_rect.width = m_nWidth;
 	m_roi_rect.height = m_nHeight;
+
+	CString str;
+	str.Format(_T("%d"), m_nWidth);
+	SetDlgItemText(IDC_ED_ROI_WIDTH, str);
+	str.Format(_T("%d"), m_nHeight);
+	SetDlgItemText(IDC_ED_ROI_HEIGHT, str);
 
 	logMessage.Format(_T("Set Data Height = [%d]"), nFinalHeight);
 	AddLog(logMessage);
@@ -2583,6 +2587,8 @@ void CMDSSpinnakerSDKDlg::OnBnClickedBtnRoiSet()
 	m_roi_rect.width = ROI_Width;
 	m_roi_rect.height = ROI_Height;
 
+
+
 	// 로그 출력
 	CString strLog;
 	strLog.Format(_T("ROI : x[%d] y[%d] Width[%d] Height[%d]"), m_roi_rect.x, m_roi_rect.y, m_roi_rect.width, m_roi_rect.height);
@@ -3029,10 +3035,10 @@ ImagePtr CMDSSpinnakerSDKDlg::GetBufferFromQueue()
 	bufferQueue.pop();
 
 	// 버퍼에서 이미지를 가져와 높이를 로그로 남깁니다.
-	int height = buffer->GetHeight();
+	//int height = buffer->GetHeight();
 	//CString logMessage;
 	//logMessage.Format(_T("Height: %d , Buffer retrieved from queue. Address: %p,"), height, buffer);
-	//Common::GetInstance()->AddLog(0, logMessage);
+	//AddLog(logMessage);
 
 	return buffer;
 }
